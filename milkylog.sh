@@ -8,9 +8,37 @@ show_version=false
 setup=false
 folderattach=false
 noneinput=false
+username_is_valid=false
 
 version="0.2.7"
 
+checkUserData() {
+    LOCAL_USERNAME="$1"
+    SESSIONID="485eeeb0-7911-4727-b3c0-28639e772d24"
+
+    # Send POST request to check username
+    RESPONSE=$(curl -s -X POST http://localhost:5173/api/check-username \
+        -H "Content-Type: application/json" \
+        -H "Cookie: sessionid=$SESSIONID" \
+        -d "{\"username\": \"$LOCAL_USERNAME\"}")
+
+    # Parse the response
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+    AVAILABLE=$(echo "$RESPONSE" | jq -r '.available')
+
+    if [ "$SUCCESS" == "true" ]; then
+        echo "Username '$LOCAL_USERNAME' is available: $AVAILABLE"
+    else
+        ERROR=$(echo "$RESPONSE" | jq -r '.error.message')
+        echo "Error: $ERROR"
+    fi
+
+    if [ "$AVAILABLE" != true ]; then
+        username_is_valid=true
+    else
+        username_is_valid=false
+    fi
+}
 
 show_version() {
     echo "Milkylog version $version"
@@ -41,7 +69,6 @@ setup_script() {
     echo "Checking if $milkyway_dir exists..."
     if [ ! -d "$milkyway_dir" ]; then
         echo "Creating directory $milkyway_dir..."
-        echo "Creating directory $milkyway_dir..."
         mkdir -p "$milkyway_dir" && echo "Directory created successfully." || echo "Failed to create directory."
     fi
     echo "checking if user data file exists..."
@@ -53,14 +80,14 @@ setup_script() {
         echo "Error: $user_data_file could not be created."
         exit 1
     fi
-    read -p "Enter your Milkyway user name (Has to exist in the database): " username
-    echo "Checking the database..."
-    #I have to insert a database check here.
-    usern_check=true 
-    if [ "$usern_check" == false ]; then
-        echo "The provided name was not in the database. Please enter a valid name."
-        exit 0
+        read -p "Enter your Milkyway user name (Has to exist in the database): " username
+    echo "Checking the database for username..."
+    checkUserData "$username"
+    if [ "$username_is_valid" == false ]; then
+        echo "The provided username '$username' was not found in the database. Please enter a valid name."
+        exit 1
     fi
+    echo "Username check successful!"
     echo "Success!"
     read -p "Enter the email connected to your account: " user_email
     if [[ "$user_email" != *"@"* ]] || [[ "$user_email" != *"."* ]]; then
