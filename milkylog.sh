@@ -10,11 +10,11 @@ folderattach=false
 noneinput=false
 username_is_valid=false
 
-version="0.2.7"
+version="0.2.8"
 
-checkUserData() {
+checkUserName() {
     LOCAL_USERNAME="$1"
-    SESSIONID="485eeeb0-7911-4727-b3c0-28639e772d24"
+    SESSIONID="c9b0d535-2d3b-401c-9636-5ca6b0fff829"
 
     # Send POST request to check username
     RESPONSE=$(curl -s -X POST http://localhost:5173/api/check-username \
@@ -31,6 +31,7 @@ checkUserData() {
     else
         ERROR=$(echo "$RESPONSE" | jq -r '.error.message')
         echo "Error: $ERROR"
+        exit 0;
     fi
 
     if [ "$AVAILABLE" != true ]; then
@@ -39,6 +40,29 @@ checkUserData() {
         username_is_valid=false
     fi
 }
+
+checkEmailNameMatch() {
+    LOCAL_EMAIL="$1"
+    GIVEN_USERNAME="$2"
+    SESSIONID="c9b0d535-2d3b-401c-9636-5ca6b0fff829"
+
+    RESPONSE=$(curl -s -X POST http://localhost:5173/api/user_check_api \
+        -H "Content-Type: application/json" \
+        -H "Cookie: sessionid=$SESSIONID" \
+        -d "{\"mail\": \"$LOCAL_EMAIL\", \"givenusername\": \"$GIVEN_USERNAME\"}")
+
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+
+    if [ "$SUCCESS" == "true" ]; then
+        echo "Check for username '$GIVEN_USERNAME' with email '$LOCAL_EMAIL' was successful."
+    else
+        ERROR=$(echo "$RESPONSE" | jq -r '.error.message')
+        echo "Error: $ERROR"
+    fi
+    echo "API Response for email check: $RESPONSE"
+
+}
+
 
 show_version() {
     echo "Milkylog version $version"
@@ -82,7 +106,7 @@ setup_script() {
     fi
         read -p "Enter your Milkyway user name (Has to exist in the database): " username
     echo "Checking the database for username..."
-    checkUserData "$username"
+    checkUserName "$username"
     if [ "$username_is_valid" == false ]; then
         echo "The provided username '$username' was not found in the database. Please enter a valid name."
         exit 1
@@ -95,6 +119,7 @@ setup_script() {
         exit 0
     fi
     echo "Checking the database..."
+    checkEmailNameMatch  $user_email $username
     #I have to insert a database check here too.
     usern_check=true 
     if [ "$usern_check" == false ]; then
